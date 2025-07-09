@@ -5,19 +5,31 @@ include 'header.php';
 
 $errors = [];
 $success = false;
+$orderId = null;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['checkout'])) {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
-    $pickup = trim($_POST['pickup']);
+    $method = trim($_POST['method']);
+    $pickup = isset($_POST['pickup']) ? trim($_POST['pickup']) : null;
+    $delivery_option = isset($_POST['delivery_option']) ? trim($_POST['delivery_option']) : null;
+    $delivery_time = ($delivery_option == 'scheduled') ? trim($_POST['delivery_time']) : ($delivery_option == 'asap' ? 'ASAP' : null);
+    $payment = trim($_POST['payment']);
 
     if (empty($name))
         $errors[] = "Name is required.";
     if (!filter_var($email, FILTER_VALIDATE_EMAIL))
         $errors[] = "Valid email required.";
-    if (empty($pickup))
+    if (empty($method))
+        $errors[] = "Select pickup or delivery.";
+    if ($method == 'pickup' && empty($pickup))
         $errors[] = "Pickup time is required.";
-
+    if ($method == 'delivery' && empty($delivery_option))
+        $errors[] = "Select delivery time preference.";
+    if ($method == 'delivery' && $delivery_option == 'scheduled' && empty($delivery_time))
+        $errors[] = "Enter delivery time.";
+    if (empty($payment))
+        $errors[] = "Payment method is required.";
     if (empty($_SESSION['cart']))
         $errors[] = "Cart is empty.";
 
@@ -32,10 +44,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['checkout'])) {
         }
 
         $itemString = implode(", ", $items);
+        $timeValue = $method == 'pickup' ? $pickup : ($delivery_option == 'asap' ? 'ASAP Delivery' : $delivery_time);
 
-        $stmt = $pdo->prepare("INSERT INTO orders (customer_name, customer_email, pickup_time, items, total_price)
-                           VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $email, $pickup, $itemString, $total]);
+        $stmt = $pdo->prepare("INSERT INTO orders (customer_name, customer_email, pickup_time, payment_method, items, total_price, status)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $email, $timeValue, $payment, $itemString, $total, 'Pending']);
+        $orderId = $pdo->lastInsertId();
 
         unset($_SESSION['cart']);
         $success = true;
@@ -48,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['checkout'])) {
 
     <?php if ($success): ?>
         <div class="alert alert-success">
-            ✅ Thank you! Your order has been placed and saved.
+            ✅ Thank you! Your order (ID: <?= $orderId ?>) has been placed and is currently <strong>Pending</strong>.
         </div>
     <?php elseif (!empty($errors)): ?>
         <div class="alert alert-danger">
@@ -70,8 +84,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['checkout'])) {
                 <input type="email" name="email" class="form-control" value="<?= $_POST['email'] ?? '' ?>" required>
             </div>
             <div class="mb-3">
+                <label class="form-label">Order Type</label>
+                <select name="method" class="form-select" id="method-select" required>
+                    <option value="">-- Choose --</option>
+                    <option value="pickup" <?= ($_POST['method'] ?? '') == 'pickup' ? 'selected' : '' ?>>Pickup</option>
+                    <option value="delivery" <?= ($_POST['method'] ?? '') == 'delivery' ? 'selected' : '' ?>>Delivery</option>
+                </select>
+            </div>
+
+            <div class="mb-3 d-none" id="pickup-time">
                 <label class="form-label">Pickup Time</label>
-                <input type="time" name="pickup" class="form-control" value="<?= $_POST['pickup'] ?? '' ?>" required>
+                <input type="time" name="pickup" class="form-control" value="<?= $_POST['pickup'] ?? '' ?>">
+            </div>
+
+            <div class="mb-3 d-none" id="delivery-options">
+                <label class="form-label">Delivery Option</label>
+                <select name="delivery_option" class="form-select" id="delivery-select">
+                    <option value="">-- Choose --</option>
+                    <option value="asap" <?= ($_POST['delivery_option'] ?? '') == 'asap' ? 'selected' : '' ?>>ASAP</option>
+                    <option value="scheduled" <?= ($_POST['delivery_option'] ?? '') == 'scheduled' ? 'selected' : '' ?>>
+                        Schedule for Later</option>
+                </select>
+            </div>
+
+            <div class="mb-3 d-none" id="delivery-time">
+                <label class="form-label">Scheduled Delivery Time</label>
+                <input type="time" name="delivery_time" class="form-control" value="<?= $_POST['delivery_time'] ?? '' ?>">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Payment Method</label>
+                <select name="payment" class="form-select" required>
+                    <option value="">-- Select Payment Option --</option>
+                    <option value="Cash" <?= (($_POST['payment'] ?? '') == 'Cash') ? 'selected' : '' ?>>Cash</option>
+                    <option value="Card" <?= (($_POST['payment'] ?? '') == 'Card') ? 'selected' : '' ?>>Card</option>
+                    <option value="Online" <?= (($_POST['payment'] ?? '') == 'Online') ? 'selected' : '' ?>>Online</option>
+                </select>
             </div>
 
             <?php if (!empty($_SESSION['cart'])): ?>
@@ -97,6 +145,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['checkout'])) {
 
             <button type="submit" name="checkout" class="btn btn-success">Place Order</button>
         </form>
+
+        <script>
+            const methodSelect = document.getElementById('method-select');
+            const pickupDiv = document.getElementById('pickup-time');
+            const deliveryDiv = document.getElementById('delivery-options');
+            const deliveryTimeDiv = document.getElementById('delivery-time');
+            const deliverySelect = document.getElementById('delivery-select');
+
+            function updateFormDisplay() {
+                const method = methodSelect.value;
+                pickupDiv.classList.add('d-none');
+                deliveryDiv.classList.add('d-none');
+                deliveryTimeDiv.classList.add('d-none');
+
+                if (method === 'pickup') {
+                    pickupDiv.classList.remove('d-none');
+                } else if (method === 'delivery') {
+                    deliveryDiv.classList.remove('d-none');
+                    if (deliverySelect.value === 'scheduled') {
+                        deliveryTimeDiv.classList.remove('d-none');
+                    }
+                }
+            }
+
+            methodSelect.addEventListener('change', updateFormDisplay);
+            deliverySelect.addEventListener('change', updateFormDisplay);
+
+            document.addEventListener('DOMContentLoaded', updateFormDisplay);
+        </script>
+
     <?php endif; ?>
 </div>
 

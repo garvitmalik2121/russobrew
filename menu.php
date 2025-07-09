@@ -1,19 +1,29 @@
 <?php
 session_start();
 
-// Add to cart logic
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
+// Add or update cart quantity logic
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $item = $_POST['item'];
   $price = $_POST['price'];
+  $action = $_POST['action'] ?? 'add';
 
   if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
   }
 
-  if (isset($_SESSION['cart'][$item])) {
+  if ($action === 'add') {
+    if (isset($_SESSION['cart'][$item])) {
+      $_SESSION['cart'][$item]['quantity'] += 1;
+    } else {
+      $_SESSION['cart'][$item] = ['price' => $price, 'quantity' => 1];
+    }
+  } elseif ($action === 'increase') {
     $_SESSION['cart'][$item]['quantity'] += 1;
-  } else {
-    $_SESSION['cart'][$item] = ['price' => $price, 'quantity' => 1];
+  } elseif ($action === 'decrease') {
+    $_SESSION['cart'][$item]['quantity'] -= 1;
+    if ($_SESSION['cart'][$item]['quantity'] <= 0) {
+      unset($_SESSION['cart'][$item]);
+    }
   }
 
   header("Location: menu.php");
@@ -21,6 +31,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
 }
 
 include 'header.php';
+
+$cartCount = isset($_SESSION['cart']) ? array_sum(array_column($_SESSION['cart'], 'quantity')) : 0;
 ?>
 
 <section class="menu py-5 bg-light">
@@ -53,6 +65,7 @@ include 'header.php';
         $labels = $item[2];
         $price = $item[3];
         $img = $item[4];
+        $quantity = $_SESSION['cart'][$name]['quantity'] ?? 0;
         ?>
         <div class="col">
           <div class="card h-100 shadow-sm">
@@ -62,12 +75,34 @@ include 'header.php';
               <h5 class="card-title"><?= htmlspecialchars($name) ?></h5>
               <p class="card-text"><?= htmlspecialchars($desc) ?></p>
               <p><small class="text-muted"><?= htmlspecialchars($labels) ?></small></p>
-              <p class="fw-bold">\$<?= htmlspecialchars($price) ?></p>
-              <form method="post">
-                <input type="hidden" name="item" value="<?= htmlspecialchars($name) ?>">
-                <input type="hidden" name="price" value="<?= htmlspecialchars($price) ?>">
-                <button type="submit" name="add_to_cart" class="btn btn-sm btn-primary w-100">Add to Cart</button>
-              </form>
+              <p class="fw-bold">$<?= htmlspecialchars($price) ?></p>
+
+              <?php if ($quantity > 0): ?>
+                <div class="d-flex justify-content-between align-items-center">
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="item" value="<?= htmlspecialchars($name) ?>">
+                    <input type="hidden" name="price" value="<?= htmlspecialchars($price) ?>">
+                    <input type="hidden" name="action" value="decrease">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">-</button>
+                  </form>
+
+                  <span class="px-2 fw-bold"><?= $quantity ?></span>
+
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="item" value="<?= htmlspecialchars($name) ?>">
+                    <input type="hidden" name="price" value="<?= htmlspecialchars($price) ?>">
+                    <input type="hidden" name="action" value="increase">
+                    <button type="submit" class="btn btn-sm btn-outline-success">+</button>
+                  </form>
+                </div>
+              <?php else: ?>
+                <form method="post">
+                  <input type="hidden" name="item" value="<?= htmlspecialchars($name) ?>">
+                  <input type="hidden" name="price" value="<?= htmlspecialchars($price) ?>">
+                  <input type="hidden" name="action" value="add">
+                  <button type="submit" class="btn btn-sm btn-primary w-100">Add to Cart</button>
+                </form>
+              <?php endif; ?>
             </div>
           </div>
         </div>
