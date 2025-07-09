@@ -72,6 +72,7 @@
       <!-- Offer 1 -->
       <div class="col-md-4">
         <div class="card h-100 shadow-sm border-0">
+          <img src="images/referafriend.png" class="card-img-top" alt="Chai Latte Combo" />
           <div class="card-body">
             <h5 class="card-title">Refer a Friend</h5>
             <p class="card-text">Refer your friends and get exclusive offers every time they make a purchase!</p>
@@ -82,6 +83,7 @@
       <!-- Offer 2 -->
       <div class="col-md-4">
         <div class="card h-100 shadow-sm border-0">
+          <img src="images/cup.png" class="card-img-top" alt="Chai Latte Combo" />
           <div class="card-body">
             <h5 class="card-title">Bring Your Cup</h5>
             <p class="card-text">Help the environment and save! Bring your own cup and get coffee at a discounted price.
@@ -93,6 +95,7 @@
       <!-- Offer 3 -->
       <div class="col-md-4">
         <div class="card h-100 shadow-sm border-0">
+          <img src="images/coffee.jpg" class="card-img-top" alt="Chai Latte Combo" />
           <div class="card-body">
             <h5 class="card-title">Morning Coffee Deal</h5>
             <p class="card-text">Get any coffee for just $3 between 6 AM and 10 AM. Start your day right!</p>
